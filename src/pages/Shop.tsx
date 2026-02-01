@@ -31,13 +31,14 @@ const Shop = () => {
   const [category, setCategory] = useState(searchParams.get("category") || "all");
   const [sortBy, setSortBy] = useState("featured");
 
-  // Build query for Shopify
-  const shopifyQuery = category !== "all" ? `tag:${category}` : undefined;
-  const { products, isLoading } = useProducts(50, shopifyQuery);
+  const { products, isLoading } = useProducts({
+    pageSize: 50,
+    category: category !== "all" ? category : undefined,
+    search: searchQuery || undefined,
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real implementation, this would filter products
   };
 
   const handleCategoryChange = (value: string) => {

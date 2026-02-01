@@ -3,7 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Layout } from "@/components/layout/Layout";
 import { useProduct } from "@/hooks/useProduct";
-import { useCartStore, CartItem } from "@/stores/cartStore";
+import { useCartStore } from "@/stores/cartStore";
+import { getStrapiMediaUrl } from "@/lib/strapi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,58 +14,33 @@ import { toast } from "sonner";
 const ProductDetail = () => {
   const { handle } = useParams<{ handle: string }>();
   const { product, isLoading, error } = useProduct(handle || "");
-  const { addItem, isLoading: cartLoading } = useCartStore();
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const addItem = useCartStore((state) => state.addItem);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isAdding, setIsAdding] = useState(false);
 
-  // Find selected variant
-  const getSelectedVariant = () => {
-    if (!product) return null;
-    
-    // If no options selected yet, use first variant
-    if (Object.keys(selectedOptions).length === 0) {
-      return product.variants.edges[0]?.node;
-    }
+  const selectedVariant = product?.variants?.[selectedVariantIndex];
 
-    return product.variants.edges.find((v) => {
-      return v.node.selectedOptions.every(
-        (opt) => selectedOptions[opt.name] === opt.value
-      );
-    })?.node;
-  };
-
-  const selectedVariant = getSelectedVariant();
-
-  const formatPrice = (amount: string, currency: string) => {
+  const formatPrice = (amount: number, currency: string = 'INR') => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: currency,
-    }).format(parseFloat(amount));
+    }).format(amount);
   };
 
   const handleAddToCart = async () => {
     if (!product || !selectedVariant) return;
 
-    const cartItem: Omit<CartItem, 'lineId'> = {
-      product: { node: product },
-      variantId: selectedVariant.id,
-      variantTitle: selectedVariant.title,
-      price: selectedVariant.price,
-      quantity: 1,
-      selectedOptions: selectedVariant.selectedOptions,
-    };
-
-    await addItem(cartItem);
+    setIsAdding(true);
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    addItem(product, selectedVariant);
+    
     toast.success("Added to cart", {
       description: product.title,
     });
-  };
-
-  const handleOptionChange = (optionName: string, value: string) => {
-    setSelectedOptions((prev) => ({
-      ...prev,
-      [optionName]: value,
-    }));
+    
+    setIsAdding(false);
   };
 
   if (isLoading) {
@@ -96,8 +72,8 @@ const ProductDetail = () => {
     );
   }
 
-  const images = product.images.edges;
-  const currentImage = images[selectedImageIndex]?.node;
+  const images = product.images || [];
+  const currentImage = images[selectedImageIndex];
 
   return (
     <Layout>
@@ -125,13 +101,13 @@ const ProductDetail = () => {
             <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
               {currentImage ? (
                 <img
-                  src={currentImage.url}
-                  alt={currentImage.altText || product.title}
+                  src={getStrapiMediaUrl(currentImage.url)}
+                  alt={currentImage.alternativeText || product.title}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  No image available
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-primary/10 to-primary/5">
+                  <span className="text-6xl">🖼️</span>
                 </div>
               )}
             </div>
@@ -148,8 +124,8 @@ const ProductDetail = () => {
                     }`}
                   >
                     <img
-                      src={img.node.url}
-                      alt={img.node.altText || `${product.title} ${index + 1}`}
+                      src={getStrapiMediaUrl(img.url)}
+                      alt={img.alternativeText || `${product.title} ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
                   </button>
@@ -169,52 +145,43 @@ const ProductDetail = () => {
               <h1 className="text-3xl md:text-4xl font-bold mb-2">{product.title}</h1>
               <div className="flex items-center gap-3">
                 <span className="text-2xl font-bold">
-                  {selectedVariant
-                    ? formatPrice(selectedVariant.price.amount, selectedVariant.price.currencyCode)
-                    : formatPrice(product.priceRange.minVariantPrice.amount, product.priceRange.minVariantPrice.currencyCode)}
+                  {formatPrice(selectedVariant?.price || product.price, product.currency)}
                 </span>
-                {selectedVariant && !selectedVariant.availableForSale && (
+                {!product.inStock && (
                   <Badge variant="secondary">Out of Stock</Badge>
                 )}
               </div>
             </div>
 
-            {/* Options */}
-            {product.options.map((option) => (
-              option.values.length > 1 && (
-                <div key={option.name} className="space-y-3">
-                  <label className="text-sm font-medium">{option.name}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {option.values.map((value) => {
-                      const isSelected = selectedOptions[option.name] === value || 
-                        (!selectedOptions[option.name] && value === product.variants.edges[0]?.node.selectedOptions.find(o => o.name === option.name)?.value);
-                      
-                      return (
-                        <Button
-                          key={value}
-                          variant={isSelected ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleOptionChange(option.name, value)}
-                          className="min-w-[60px]"
-                        >
-                          {isSelected && <Check className="h-3 w-3 mr-1" />}
-                          {value}
-                        </Button>
-                      );
-                    })}
-                  </div>
+            {/* Variant Selection */}
+            {product.variants && product.variants.length > 1 && (
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Size</label>
+                <div className="flex flex-wrap gap-2">
+                  {product.variants.map((variant, index) => (
+                    <Button
+                      key={variant.id}
+                      variant={selectedVariantIndex === index ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedVariantIndex(index)}
+                      className="min-w-[60px]"
+                    >
+                      {selectedVariantIndex === index && <Check className="h-3 w-3 mr-1" />}
+                      {variant.title}
+                    </Button>
+                  ))}
                 </div>
-              )
-            ))}
+              </div>
+            )}
 
             {/* Add to Cart */}
             <Button
               size="lg"
               className="w-full"
               onClick={handleAddToCart}
-              disabled={cartLoading || !selectedVariant?.availableForSale}
+              disabled={isAdding || !product.inStock}
             >
-              {cartLoading ? (
+              {isAdding ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>

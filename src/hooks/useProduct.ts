@@ -1,63 +1,34 @@
 import { useState, useEffect } from 'react';
-import { storefrontApiRequest, PRODUCT_BY_HANDLE_QUERY } from '@/lib/shopify';
-
-export interface ProductDetail {
-  id: string;
-  title: string;
-  description: string;
-  handle: string;
-  priceRange: {
-    minVariantPrice: {
-      amount: string;
-      currencyCode: string;
-    };
-  };
-  images: {
-    edges: Array<{
-      node: {
-        url: string;
-        altText: string | null;
-      };
-    }>;
-  };
-  variants: {
-    edges: Array<{
-      node: {
-        id: string;
-        title: string;
-        price: {
-          amount: string;
-          currencyCode: string;
-        };
-        availableForSale: boolean;
-        selectedOptions: Array<{
-          name: string;
-          value: string;
-        }>;
-      };
-    }>;
-  };
-  options: Array<{
-    name: string;
-    values: string[];
-  }>;
-}
+import { fetchProductByHandle, StrapiProduct, useMockDataIfNeeded, mockProducts } from '@/lib/strapi';
 
 export function useProduct(handle: string) {
-  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [product, setProduct] = useState<StrapiProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchProduct() {
+    async function loadProduct() {
       if (!handle) return;
-      
+
       setIsLoading(true);
       setError(null);
+
+      // Use mock data if Strapi is not configured
+      if (useMockDataIfNeeded()) {
+        const mockProduct = mockProducts.find(p => p.handle === handle);
+        if (mockProduct) {
+          setProduct(mockProduct);
+        } else {
+          setError('Product not found');
+        }
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        const data = await storefrontApiRequest(PRODUCT_BY_HANDLE_QUERY, { handle });
-        if (data?.data?.productByHandle) {
-          setProduct(data.data.productByHandle);
+        const data = await fetchProductByHandle(handle);
+        if (data) {
+          setProduct(data);
         } else {
           setError('Product not found');
         }
@@ -68,7 +39,7 @@ export function useProduct(handle: string) {
       }
     }
 
-    fetchProduct();
+    loadProduct();
   }, [handle]);
 
   return { product, isLoading, error };
