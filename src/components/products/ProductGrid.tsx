@@ -1,9 +1,9 @@
-import { ShopifyProduct } from "@/lib/shopify";
+import { StrapiProduct } from "@/lib/strapi";
 import { ProductCard } from "./ProductCard";
 import { Loader2, Package } from "lucide-react";
 
 interface ProductGridProps {
-  products: ShopifyProduct[];
+  products: StrapiProduct[];
   isLoading?: boolean;
 }
 
@@ -31,7 +31,7 @@ export function ProductGrid({ products, isLoading }: ProductGridProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
       {products.map((product) => (
-        <ProductCard key={product.node.id} product={product} />
+        <ProductCard key={product.id} product={product} />
       ))}
     </div>
   );

@@ -5,7 +5,7 @@ import { ProductGrid } from "@/components/products/ProductGrid";
 import { useProducts } from "@/hooks/useProducts";
 
 export function FeaturedProducts() {
-  const { products, isLoading } = useProducts(8);
+  const { products, isLoading } = useProducts({ pageSize: 8 });
 
   return (
     <section className="py-16 md:py-24 bg-muted/30">

@@ -1,15 +1,10 @@
 import { useEffect } from 'react';
-import { useCartStore } from '@/stores/cartStore';
 
+// Simple cart sync hook - cart is persisted via zustand middleware
 export function useCartSync() {
-  const syncCart = useCartStore(state => state.syncCart);
-
   useEffect(() => {
-    syncCart();
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') syncCart();
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [syncCart]);
+    // Cart is already persisted via zustand persist middleware
+    // This hook is kept for compatibility but can be extended
+    // to sync with a backend cart API if needed
+  }, []);
 }
